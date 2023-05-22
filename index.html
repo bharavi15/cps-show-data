@@ -38,16 +38,22 @@
         </div>
     </div>
     <div id="rawData" style="display: none;">
+        <h2> Raw Data</h2>
         <table id="tableRaw" style="width:100%">
-            <tr>
-                <th>Device ID</th>
-                <th>UUID</th>
-                <th>Timestamp</th>
-                <th>Duration (seconds)</th>
-                <th>On/Off status</th>
-            </tr>
+            <thead>
+                <tr>
+                    <th>Device ID</th>
+                    <th>UUID</th>
+                    <th>Timestamp</th>
+                    <th>Duration (seconds)</th>
+                    <th>On/Off status</th>
+                </tr>
+            </thead>
         </table>
+        <h3 id="cumulativeAverage1">Hi</h3>
+        <h3 id="cumulativeAverage2">Hi</h3>
         <table id="tableRawCumulative" />
+
     </div>
 </body>
 <script>
@@ -55,10 +61,12 @@
     var dataPointsChartHistogram = [];
     var dataPointsChartAreaSpline = [];
     var dataPointsChartCumulativeHistogram = [];
+    var cumulativeData = {}
+    var cumulativeAverage = 0;
     function formatDate(date) {
         return date.toISOString().split('T')[0].split('-').reverse().join('-')
     }
-    function toggleData(){
+    function toggleData() {
         $("#chart").toggle()
         $("#rawData").toggle()
     }
@@ -146,7 +154,6 @@
     })
 
     function addChartCumulativeHistogram() {
-        var cumulativeData = {}
         for (var i = 0; i < allData.length; i++) {
             if (allData[i].duration !== null) {
                 if (!cumulativeData[allData[i].dateNum])
@@ -155,26 +162,29 @@
             }
         }
         for (var i of Object.keys(cumulativeData)) {
+            cumulativeAverage += Math.floor(cumulativeData[i] / 60)
             dataPointsChartCumulativeHistogram.push({
                 x: new Date(i),
                 y: Math.floor(cumulativeData[i] / 60)
             })
         }
+        cumulativeAverage /= Math.round(Object.keys(cumulativeData).length)
         console.log(dataPointsChartCumulativeHistogram)
         chartCumulativeHistogram.render()
     }
-    function addTableDataRaw(){
-        $('#tableRaw').DataTable( {
-            data:allData,
-        columns: [
-        { data: 'deviceId' },
-        { data: 'uuid' },
-        { data: 'currTime' },
-        { data: 'duration' },
-        { data: 'ison' }
-    ]
-
+    function addTableDataRaw() {
+        $('#tableRaw').DataTable({
+            data: allData,
+            columns: [
+                { data: 'deviceId' },
+                { data: 'uuid' },
+                { data: 'currTime' },
+                { data: 'duration' },
+                { data: 'isonEng' }
+            ]
         })
+        $("#cumulativeAverage1").text("The light remained on for just "+ cumulativeAverage + "minutes")
+        $("#cumulativeAverage2").text("Without the motion detection, the light would have been unnecessarily on for "+((480-cumulativeAverage)/60).toPrecision(4)+"hours")
     }
     $(document).ready(function () {
         $.getJSON('https://3dh5imrexevj3usqx2odbmoitu0wpagn.lambda-url.ap-south-1.on.aws', function (data, status, xhr) {
@@ -186,6 +196,7 @@
                 var d = new Date(new Date(data[i].currTime).setHours(0, 0, 0, 0))
                 data[i]['date'] = formatDate(d)
                 data[i]['dateNum'] = d
+                data[i]['isonEng'] = data[i]['ison'] == 1 ? 'ON' : 'OFF'
             }
             console.log(data)
             allData = data;
