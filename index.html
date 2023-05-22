@@ -25,25 +25,33 @@
 
 <body>
     <div class="container">
-
-        <div id="chartHistogram" style="height: 370px; width: 100%;"></div>
-        <div id="chartAreaSpline" style="height: 370px; width: 100%;"></div>
+        <div id="failedToLoad" style="display: none;"><h1>Failed to retrieve data from server</h1></div>
+        <div id="chartHistogram" style="height: 320px; width: 100%;"></div>
+        <div id="chartAreaSpline" style="height: 320px; width: 100%; display: none;"></div>
+        <div id="chartCumulativeHistogram" style="height: 320px; width: 100%;"></div>
     </div>
 </body>
 <script>
     var allData = []
     var dataPointsChartHistogram = [];
     var dataPointsChartAreaSpline = [];
-
+    var dataPointsChartCumulativeHistogram = [];
+    function formatDate(date) {
+        return date.toISOString().split('T')[0].split('-').reverse().join('-')
+    }
     var chartHistogram = new CanvasJS.Chart("chartHistogram", {
         zoomEnabled: true,
         animationEnabled: true,
         theme: "light2",
         title: {
-            text: "Histogram"
-        }, axisY: {
+            text: "Time series Histogram"
+        },
+        axisX: {
+            title: "Time",
+            valueFormatString: "DD MMM YYYY"
+        },
+        axisY: {
             title: "Seconds",
-            titleFontSize: 24,
             includeZero: true
         },
         data: [{
@@ -81,21 +89,75 @@
         }]
     })
     function addChartAreaSpline() {
-        for (var i = 0; i < allData.length; i+=2) {
+        for (var i = 0; i < allData.length; i += 2) {
             dataPointsChartAreaSpline.push({
                 x: new Date(allData[i].currTime),
-                y: [(allData[i].currTime-allData[i].currTime)/1000,(allData[i+1].currTime-allData[i].currTime)/1000]
+                y: [(allData[i].currTime - allData[i].currTime) / 1000, (allData[i + 1].currTime - allData[i].currTime) / 1000]
             })
-            
+
         }
         chartAreaSpline.render()
     }
+
+
+
+    var chartCumulativeHistogram = new CanvasJS.Chart("chartCumulativeHistogram", {
+        animationEnabled: true,
+        theme: "light2",
+        title: {
+            text: "Cumulative Histogram"
+        },
+        axisX:{
+            title:"Time",
+            valueFormatString: "DD MMM YYYY",
+            interval: 25,
+            intervalType: "hour"
+        },
+        axisY: {
+            title: "Minutes",
+            includeZero: true
+        },
+        data: [{
+            type: "column",
+            yValueFormatString: "#,###mins",
+            dataPoints: dataPointsChartCumulativeHistogram
+        }]
+    })
+
+    function addChartCumulativeHistogram() {
+        var cumulativeData = {}
+        for (var i = 0; i < allData.length; i++) {
+            if (allData[i].duration !== null) {
+                if(!cumulativeData[allData[i].dateNum])
+                    cumulativeData[allData[i].dateNum] = 0
+                cumulativeData[allData[i].dateNum] += allData[i].duration;
+            }
+        }
+        for (var i of Object.keys(cumulativeData)) {
+            dataPointsChartCumulativeHistogram.push({
+                x: new Date(i),
+                y: Math.floor(cumulativeData[i]/60)
+            })
+        }
+        console.log(dataPointsChartCumulativeHistogram)
+        chartCumulativeHistogram.render()
+    }
     $(document).ready(function () {
         $.getJSON('https://3dh5imrexevj3usqx2odbmoitu0wpagn.lambda-url.ap-south-1.on.aws', function (data, status, xhr) {
-            //console.log(data)
+            if(xhr.status !== 200){
+                document.getElementById("failedToLoad").style.display = "block";
+                return
+            }
+            for (let i = 0; i < data.length; i++) {
+                var d = new Date(new Date(data[i].currTime).setHours(0, 0, 0, 0))
+                data[i]['date'] = formatDate(d)
+                data[i]['dateNum'] = d
+            }
+            console.log(data)
             allData = data;
             addChartHistogram()
             addChartAreaSpline()
+            addChartCumulativeHistogram()
         })
     })
 
