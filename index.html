@@ -20,15 +20,34 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/js/bootstrap.min.js"
         integrity="sha384-aJ21OjlMXNL5UyIl/XNwTMqvzeRMZH2w8c5cRVpzpU8Y5bApTppSuUkhZXN0VxHd"
         crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.css" />
 
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.js"></script>
 </head>
 
 <body>
+    <button type="button" id="toggle" onclick="toggleData()">Toggle Chart/Raw</button>
     <div class="container">
-        <div id="failedToLoad" style="display: none;"><h1>Failed to retrieve data from server</h1></div>
-        <div id="chartHistogram" style="height: 320px; width: 100%;"></div>
-        <div id="chartAreaSpline" style="height: 320px; width: 100%; display: none;"></div>
-        <div id="chartCumulativeHistogram" style="height: 320px; width: 100%;"></div>
+        <div id="failedToLoad" style="display: none;">
+            <h1>Failed to retrieve data from server</h1>
+        </div>
+        <div id="chart">
+            <div id="chartHistogram" style="height: 320px; width: 100%;"></div>
+            <div id="chartAreaSpline" style="height: 320px; width: 100%; display: none;"></div>
+            <div id="chartCumulativeHistogram" style="height: 320px; width: 100%;"></div>
+        </div>
+    </div>
+    <div id="rawData" style="display: none;">
+        <table id="tableRaw" style="width:100%">
+            <tr>
+                <th>Device ID</th>
+                <th>UUID</th>
+                <th>Timestamp</th>
+                <th>Duration (seconds)</th>
+                <th>On/Off status</th>
+            </tr>
+        </table>
+        <table id="tableRawCumulative" />
     </div>
 </body>
 <script>
@@ -38,6 +57,10 @@
     var dataPointsChartCumulativeHistogram = [];
     function formatDate(date) {
         return date.toISOString().split('T')[0].split('-').reverse().join('-')
+    }
+    function toggleData(){
+        $("#chart").toggle()
+        $("#rawData").toggle()
     }
     var chartHistogram = new CanvasJS.Chart("chartHistogram", {
         zoomEnabled: true,
@@ -107,8 +130,8 @@
         title: {
             text: "Cumulative Histogram"
         },
-        axisX:{
-            title:"Time",
+        axisX: {
+            title: "Time",
             valueFormatString: "DD MMM YYYY"
         },
         axisY: {
@@ -126,7 +149,7 @@
         var cumulativeData = {}
         for (var i = 0; i < allData.length; i++) {
             if (allData[i].duration !== null) {
-                if(!cumulativeData[allData[i].dateNum])
+                if (!cumulativeData[allData[i].dateNum])
                     cumulativeData[allData[i].dateNum] = 0
                 cumulativeData[allData[i].dateNum] += allData[i].duration;
             }
@@ -134,15 +157,28 @@
         for (var i of Object.keys(cumulativeData)) {
             dataPointsChartCumulativeHistogram.push({
                 x: new Date(i),
-                y: Math.floor(cumulativeData[i]/60)
+                y: Math.floor(cumulativeData[i] / 60)
             })
         }
         console.log(dataPointsChartCumulativeHistogram)
         chartCumulativeHistogram.render()
     }
+    function addTableDataRaw(){
+        $('#tableRaw').DataTable( {
+            data:allData,
+        columns: [
+        { data: 'deviceId' },
+        { data: 'uuid' },
+        { data: 'currTime' },
+        { data: 'duration' },
+        { data: 'ison' }
+    ]
+
+        })
+    }
     $(document).ready(function () {
         $.getJSON('https://3dh5imrexevj3usqx2odbmoitu0wpagn.lambda-url.ap-south-1.on.aws', function (data, status, xhr) {
-            if(xhr.status !== 200){
+            if (xhr.status !== 200) {
                 document.getElementById("failedToLoad").style.display = "block";
                 return
             }
@@ -156,6 +192,7 @@
             addChartHistogram()
             addChartAreaSpline()
             addChartCumulativeHistogram()
+            addTableDataRaw()
         })
     })
 
